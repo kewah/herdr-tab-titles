@@ -1,0 +1,22 @@
+description: Tab title golden-output evaluation
+
+prompts:
+  - id: first-user-message
+    raw: "{{message}}"
+
+providers:
+  - id: file://title-provider.mjs
+    label: Configured Pi or Claude CLI
+
+defaultTest:
+  assert:
+    - type: javascript
+      value: file://assert-title-format.cjs
+      metric: Title format
+
+tests: file://title-cases.yaml
+
+commandLineOptions:
+  cache: false
+  maxConcurrency: 1
+  share: false

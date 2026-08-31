@@ -1,0 +1,31 @@
+- description: Summarize a generic documentation review
+  vars:
+    message: Review a README update for clarity and accuracy
+  assert:
+    - type: equals
+      value: README update review
+      metric: Exact title
+
+- description: Keep a generic tool and its integration method
+  vars:
+    message: Add a toolkit using a Git subtree
+  assert:
+    - type: equals
+      value: Git subtree toolkit integration
+      metric: Exact title
+
+- description: Preserve established UX/UI spelling
+  vars:
+    message: Improve the UI and UX of a settings screen
+  assert:
+    - type: equals
+      value: Settings UX/UI improvements
+      metric: Exact title
+
+- description: Summarize the overall strategy rather than its details
+  vars:
+    message: Rebalance jobs across worker queues for peak traffic
+  assert:
+    - type: equals
+      value: Worker queue rebalance strategy
+      metric: Exact title

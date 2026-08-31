@@ -1,0 +1,38 @@
+id = "tab-titles"
+name = "Tab Titles"
+version = "0.9.0"
+min_herdr_version = "0.8.0"
+description = "Names Herdr panes and tabs after the first coding-agent prompt, or the foreground process when there is no chat title."
+platforms = ["linux", "macos"]
+
+[[build]]
+command = ["node", "scripts/install.mjs"]
+
+[[actions]]
+id = "rename-now"
+title = "Tab Titles: rename now"
+description = "Regenerate the title of the pane focused in the Herdr UI from its current prompt."
+contexts = ["workspace", "tab", "pane"]
+command = ["node", "src/rename.mjs", "--source", "manual", "--current"]
+
+[[actions]]
+id = "status"
+title = "Tab Titles: status"
+description = "Show the resolved title generator and the last rename failure."
+contexts = ["global", "workspace", "tab", "pane"]
+command = ["node", "src/rename.mjs", "--status"]
+
+[[events]]
+on = "pane.agent_detected"
+command = ["node", "src/rename.mjs", "--source", "agent-detected", "--default"]
+
+[[events]]
+on = "pane.created"
+command = ["node", "src/rename.mjs", "--source", "process"]
+
+[[events]]
+on = "pane.focused"
+command = ["node", "src/rename.mjs", "--source", "process"]
+
+[[startup]]
+command = ["node", "src/rename.mjs", "--source", "process"]
