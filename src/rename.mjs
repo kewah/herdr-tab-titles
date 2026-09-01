@@ -14,6 +14,9 @@ const PLUGIN_ID = "tab-titles";
 const CONFIG_FILE = "tab-titles.json";
 const MAX_PANES = 50;
 const MAX_PROMPT_CHARS = 1600;
+const MAX_LABEL_CHARS = 48;
+const MAX_LABEL_WORDS = 4;
+const TRUNCATABLE_WORDS = MAX_LABEL_WORDS + 2;
 const DEFAULT_TIMEOUT_MS = 60_000;
 // The lock only guards a read-modify-write of state.json, so a holder this old is dead.
 const STALE_LOCK_MS = 5_000;
@@ -75,9 +78,9 @@ const LOG_PATH = join(STATE_DIR, "rename.log");
 
 const SYSTEM_PROMPT = `Create a short title for the task in the user's first message.
 
-Write a specific 2-5 word noun phrase that captures the main goal. Summarize the task as a whole instead of listing every requested detail. Remove conversational filler, background context, URLs, and slash commands such as /simplify. Mention a tool, library, or project only when it is central to the task.
+Write a specific 2-4 word noun phrase that captures the main goal. Summarize the task as a whole instead of listing every requested detail. Remove conversational filler, background context, URLs, and slash commands such as /simplify. Mention a tool, library, or project only when it is central to the task.
 
-Use sentence case: capitalize only the first word and proper names or acronyms. Preserve established technical spelling. Do not begin with "Help", "Request", "Task", or "Work on". Return one title, never a numbered or bulleted list, and never include a list marker such as "1.". Return only the title, with no quotes, markdown, ending punctuation, commentary, or explanation. Keep it at most 40 characters.
+Use sentence case: capitalize only the first word and proper names or acronyms. Preserve established technical spelling. Do not begin with "Help", "Request", "Task", or "Work on". Return one title, never a numbered or bulleted list, and never include a list marker such as "1.". Return only the title, with no quotes, markdown, ending punctuation, commentary, or explanation. Keep it at most 48 characters.
 
 Examples:
 - Review a README update for clarity and accuracy -> README update review
@@ -148,7 +151,7 @@ function labelCandidates(output) {
   return (usable.length ? usable : lines).flatMap(lineCandidates);
 }
 
-function normalizeLabel(candidate) {
+function labelWords(candidate) {
   const value = candidate
     // Small models answer in Markdown even when told not to: "# Label", "**Label**", "- Label".
     .replace(/^#{1,6}\s+/, "")
@@ -156,10 +159,14 @@ function normalizeLabel(candidate) {
     .replace(/^[*_~]+|[*_~]+$/g, "")
     .replace(/^["'`]+|["'`.,:;!?]+$/g, "")
     .trim();
-  if (value.length < 3 || value.length > 40 || /[\r\n]/.test(value)) return null;
+  if (value.length < 3 || /[\r\n]/.test(value)) return null;
   const words = value.split(/\s+/);
-  if (words.length < 2 || words.length > 5) return null;
+  if (words.length < 2) return null;
   if (!words.every((word) => /^[\p{L}\p{N}][\p{L}\p{N}+.#/'-]*$/u.test(word))) return null;
+  return words;
+}
+
+function formatLabel(words) {
   const normalized = words.map((word) => {
     const lower = word.toLowerCase();
     if (["api", "cli", "ui", "ux", "pr", "rpc", "sql"].includes(lower)) return lower.toUpperCase();
@@ -170,9 +177,31 @@ function normalizeLabel(candidate) {
   return normalized[0].toLocaleUpperCase() + normalized.slice(1);
 }
 
+function normalizeLabel(candidate) {
+  const words = labelWords(candidate);
+  if (!words || words.length > MAX_LABEL_WORDS) return null;
+  const label = formatLabel(words);
+  return label.length > MAX_LABEL_CHARS ? null : label;
+}
+
+function truncateLabel(candidate) {
+  const words = labelWords(candidate);
+  if (!words || words.length > TRUNCATABLE_WORDS) return null;
+  for (let count = Math.min(words.length, MAX_LABEL_WORDS); count >= 2; count -= 1) {
+    const label = formatLabel(words.slice(0, count));
+    if (label.length <= MAX_LABEL_CHARS) return label;
+  }
+  return null;
+}
+
 export function parseLabel(output) {
-  for (const candidate of labelCandidates(output)) {
+  const candidates = labelCandidates(output);
+  for (const candidate of candidates) {
     const label = normalizeLabel(candidate);
+    if (label) return label;
+  }
+  for (const candidate of candidates) {
+    const label = truncateLabel(candidate);
     if (label) return label;
   }
   return null;

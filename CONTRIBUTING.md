@@ -51,7 +51,7 @@ the plugin config (`herdr plugin config-dir tab-titles`, file `tab-titles.json`)
 Promptfoo checks the trimmed raw model response before `parseLabel` can repair Markdown, list markers, or added
 commentary, so the eval measures whether the generation prompt itself does its job. It uses no API token, cloud
 sharing, model-based grader, or second provider. Its exact-match cases are the expected title examples in
-`eval/title-cases.yaml`, with an additional local assertion for the 2-5 word, 40-character, single-title format.
+`eval/title-cases.yaml`, with an additional local assertion for the 2-4 word, 48-character, single-title format.
 
 Results are intentionally uncached and calls run serially. To check whether a nondeterministic model is consistent,
 repeat every case explicitly:
