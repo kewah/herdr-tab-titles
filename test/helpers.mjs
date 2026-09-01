@@ -23,24 +23,33 @@ export async function createHarness(options = {}) {
   const root = await makeTempDir();
   const herdrDir = join(root, "herdr");
   const piDir = join(root, "pi");
+  const claudeDir = join(root, "claude");
   const configDir = join(root, "plugin-config");
   const stateDir = join(root, "plugin-state");
   const home = join(root, "home");
   await mkdir(herdrDir, { recursive: true });
   await mkdir(piDir, { recursive: true });
+  await mkdir(claudeDir, { recursive: true });
   await mkdir(configDir, { recursive: true, mode: 0o700 });
   await mkdir(stateDir, { recursive: true, mode: 0o700 });
   await mkdir(join(home, ".config", "herdr"), { recursive: true });
   const herdrPath = join(herdrDir, "herdr");
   const piPath = join(piDir, "pi");
+  const claudePath = join(claudeDir, "claude");
   await writeExecutable(herdrPath, `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(FAKE_HERDR_SRC)} "$@"\n`);
   await writeExecutable(piPath, `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(FAKE_PI_SRC)} "$@"\n`);
+  await writeExecutable(
+    claudePath,
+    `#!/bin/sh\nFAKE_PI_DIR=${JSON.stringify(claudeDir)} exec ${JSON.stringify(process.execPath)} ${JSON.stringify(FAKE_PI_SRC)} "$@"\n`,
+  );
   const configPath = join(configDir, "tab-titles.json");
   const config = {
     generator: "pi",
     piPath,
     timeoutMs: 5_000,
     renameTab: true,
+    // Without this, a failing fake pi reaches the real `claude` on the test machine.
+    fallback: false,
     ...options.config,
   };
   await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`);
@@ -66,7 +75,9 @@ export async function createHarness(options = {}) {
   };
   delete env.HERDR_TAB_TITLES_CONFIG;
   delete env.HERDR_TAB_TITLES_STATE_DIR;
-  return { root, home, herdrDir, piDir, stateDir, configDir, configPath, herdrPath, piPath, env };
+  return {
+    root, home, herdrDir, piDir, claudeDir, stateDir, configDir, configPath, herdrPath, piPath, claudePath, env,
+  };
 }
 
 export async function removeHarness(harness) {

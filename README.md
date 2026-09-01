@@ -19,7 +19,7 @@ Then `/reload` running Pi sessions, or restart Codex, Claude Code, Cursor Agent 
 
 The installer wires whichever of those agents it finds. It is idempotent, backs up files it rewrites, and does not replace unrelated hooks (including Herdr's Cursor `sessionStart` entry).
 
-**Requires:** [Herdr](https://github.com/herdrdev/herdr) 0.8+, Node.js 22.22+, Linux or macOS, and **Pi** already signed in for zero-config title generation. Claude-only machines must create the config below with `"generator": "claude"`. The chosen CLI is used only to mint the short title.
+**Requires:** [Herdr](https://github.com/herdrdev/herdr) 0.8+, Node.js 22.22+, Linux or macOS, and **Pi** or **Claude Code** already signed in for title generation. Pi is tried first and Claude second, so a machine with only Claude needs no config, though naming it with `"generator": "claude"` skips the failed Pi attempt. The chosen CLI is used only to mint the short title.
 
 ## What to expect
 
@@ -90,7 +90,7 @@ Claude CLI instead:
 }
 ```
 
-`generator` is `pi` or `claude`. `model` is passed through to that CLI (Claude aliases such as `haiku` work). Optional `piPath` / `claudePath` override the executable when it is not on the plugin's `PATH`. Set `renameTab` to `false` to leave tab labels alone.
+`generator` is `pi` or `claude`. `model` is passed through to that CLI (Claude aliases such as `haiku` work). Optional `piPath` / `claudePath` override the executable when it is not on the plugin's `PATH`. Set `renameTab` to `false` to leave tab labels alone, or `fallback` to `false` to use only the configured generator instead of trying the other one when it fails.
 
 ## Commands
 

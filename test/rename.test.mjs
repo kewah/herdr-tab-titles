@@ -25,6 +25,7 @@ import {
   redactPanes,
   remainingTabLabel,
   releasedAgentEvent,
+  generatorChain,
   resolveGenerator,
   resolveTimeout,
   shouldApplyDefault,
@@ -161,6 +162,35 @@ test("resolves Pi and Claude title generators", () => {
     command: "/opt/claude",
     model: "sonnet",
   });
+});
+
+test("falls back to the other generator, with that generator's own model", () => {
+  assert.deepEqual(generatorChain({}, {}), [
+    { generator: "pi", command: "pi", model: "openai-codex/gpt-5.6-luna:minimal" },
+    { generator: "claude", command: "claude", model: "haiku" },
+  ]);
+  assert.deepEqual(generatorChain({ generator: "claude" }, {}), [
+    { generator: "claude", command: "claude", model: "haiku" },
+    { generator: "pi", command: "pi", model: "openai-codex/gpt-5.6-luna:minimal" },
+  ]);
+  assert.deepEqual(generatorChain({ model: "openai-codex/gpt-5.6-luna:high" }, {}), [
+    { generator: "pi", command: "pi", model: "openai-codex/gpt-5.6-luna:high" },
+    { generator: "claude", command: "claude", model: "haiku" },
+  ]);
+  assert.deepEqual(generatorChain({ claudePath: "/opt/claude" }, {}), [
+    { generator: "pi", command: "pi", model: "openai-codex/gpt-5.6-luna:minimal" },
+    { generator: "claude", command: "/opt/claude", model: "haiku" },
+  ]);
+});
+
+test("honours an explicit opt out of the fallback", () => {
+  assert.deepEqual(generatorChain({ fallback: false }, {}), [
+    { generator: "pi", command: "pi", model: "openai-codex/gpt-5.6-luna:minimal" },
+  ]);
+});
+
+test("rejects a non-boolean fallback", () => {
+  assert.throws(() => validateConfig({ fallback: "yes" }), /fallback must be a boolean/);
 });
 
 test("rejects unsupported title generators", () => {

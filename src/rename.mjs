@@ -23,6 +23,7 @@ const STALE_LOCK_MS = 5_000;
 const LOCK_ATTEMPTS = 400;
 const LOCK_RETRY_MS = 25;
 const DEFAULT_GENERATOR = "pi";
+const GENERATORS = ["pi", "claude"];
 const DEFAULT_PI_MODEL = "openai-codex/gpt-5.6-luna:minimal";
 const DEFAULT_CLAUDE_MODEL = "haiku";
 const DEFAULT_KILL_GRACE_MS = 1_000;
@@ -404,6 +405,9 @@ export function validateConfig(raw) {
   if (raw.renameTab !== undefined && raw.renameTab !== null && typeof raw.renameTab !== "boolean") {
     throw new Error("renameTab must be a boolean");
   }
+  if (raw.fallback !== undefined && raw.fallback !== null && typeof raw.fallback !== "boolean") {
+    throw new Error("fallback must be a boolean");
+  }
   if (raw.piPath !== undefined && raw.piPath !== null && typeof raw.piPath !== "string") {
     throw new Error("piPath must be a string");
   }
@@ -774,9 +778,8 @@ async function currentPrompt(paneId, tabId) {
   return cleanText(await run(HERDR, args, { timeout: 5_000 }), 5000) || `Current work in ${tabId}`;
 }
 
-export function resolveGenerator(config = {}, env = process.env) {
-  const generator = String(config.generator || env.HERDR_TAB_TITLES_GENERATOR || DEFAULT_GENERATOR).toLowerCase();
-  const configuredModel = config.model || env.HERDR_TAB_TITLES_MODEL;
+function resolveOne(generator, config, env, inheritModel) {
+  const configuredModel = inheritModel ? config.model || env.HERDR_TAB_TITLES_MODEL : "";
   if (generator === "pi") {
     return {
       generator,
@@ -794,12 +797,22 @@ export function resolveGenerator(config = {}, env = process.env) {
   throw new Error(`unsupported title generator: ${JSON.stringify(generator)} (expected "pi" or "claude")`);
 }
 
-async function suggestLabel(prompt, config) {
-  const resolved = resolveGenerator(config);
-  const timeout = resolveTimeout(config);
-  const childEnv = { ...process.env };
-  for (const key of Object.keys(childEnv)) if (key.startsWith("HERDR_")) delete childEnv[key];
-  const request = `First user message:\n${prompt}`;
+export function resolveGenerator(config = {}, env = process.env) {
+  const generator = String(config.generator || env.HERDR_TAB_TITLES_GENERATOR || DEFAULT_GENERATOR).toLowerCase();
+  return resolveOne(generator, config, env, true);
+}
+
+/** A configured `model` names a model of the primary, so the standby keeps its own. */
+export function generatorChain(config = {}, env = process.env) {
+  const primary = resolveGenerator(config, env);
+  if (config.fallback === false) return [primary];
+  return [
+    primary,
+    ...GENERATORS.filter((name) => name !== primary.generator).map((name) => resolveOne(name, config, env, false)),
+  ];
+}
+
+async function attemptLabel(resolved, request, timeout, childEnv) {
   const args = resolved.generator === "pi"
     ? [
         "--print", "--no-session", "--no-tools", "--no-extensions",
@@ -820,6 +833,27 @@ async function suggestLabel(prompt, config) {
     throw new Error(`${resolved.generator} returned an invalid label: ${JSON.stringify(cleanText(rawOutput, 100))}`);
   }
   return { label, rawOutput, model: resolved.model, generator: resolved.generator };
+}
+
+/** The timeout is per generator, so a hung primary cannot eat the standby's budget. */
+async function suggestLabel(prompt, config) {
+  const chain = generatorChain(config);
+  const timeout = resolveTimeout(config);
+  const childEnv = { ...process.env };
+  for (const key of Object.keys(childEnv)) if (key.startsWith("HERDR_")) delete childEnv[key];
+  const request = `First user message:\n${prompt}`;
+  const failures = [];
+  for (const resolved of chain) {
+    try {
+      const result = await attemptLabel(resolved, request, timeout, childEnv);
+      // A silent standby makes a broken primary look healthy in `--status`.
+      if (failures.length) await log(`fell back to ${resolved.generator} after ${failures.join("; ")}`).catch(() => {});
+      return result;
+    } catch (error) {
+      failures.push(`${resolved.generator} failed: ${cleanText(error?.message || error, 200)}`);
+    }
+  }
+  throw new Error(failures.join("; "));
 }
 
 /**
@@ -1135,10 +1169,11 @@ async function status() {
     panes: redactPanes(state.panes),
   };
   if (!configError) {
-    const resolved = resolveGenerator(config);
+    const [resolved, ...standby] = generatorChain(config);
     body.generator = resolved.generator;
     body.command = resolved.command;
     body.model = resolved.model;
+    body.fallback = standby.map(({ generator, command, model }) => ({ generator, command, model }));
   }
   console.log(JSON.stringify(body, null, 2));
 }

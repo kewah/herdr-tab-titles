@@ -57,6 +57,89 @@ test("retries generation on the next prompt using the original titlePrompt", asy
   });
 });
 
+test("falls back to the standby generator when the primary fails", async () => {
+  await withHarness({ config: { fallback: true } }, async (harness) => {
+    await writeFile(harness.configPath, `${JSON.stringify({
+      generator: "pi",
+      piPath: harness.piPath,
+      claudePath: harness.claudePath,
+      timeoutMs: 5_000,
+      renameTab: true,
+    }, null, 2)}\n`);
+    await writeFile(join(harness.piDir, "fail-left"), "1\n");
+    const result = await runRename(harness, {
+      args: ["--source", "pi"],
+      env: { HERDR_PANE_ID: "w1:p2", HERDR_TAB_ID: "w1:t1", FAKE_PI_LABEL: "Fix OAuth redirect" },
+      input: promptPayload("wire up the oauth callback", harness.root),
+    });
+    assert.equal(result.code, 0);
+
+    const state = await readState(harness);
+    const record = state.panes["w1:p2"];
+    assert.equal(record.label, "Fix OAuth redirect");
+    assert.equal(record.generator, "claude");
+    assert.equal(record.model, "haiku");
+    assert.equal(state.lastError, undefined);
+
+    const claudeStdin = await readFile(join(harness.claudeDir, "stdin.txt"), "utf8");
+    assert.match(claudeStdin, /wire up the oauth callback/);
+    const claudeArgv = JSON.parse(await readFile(join(harness.claudeDir, "argv.txt"), "utf8"));
+    assert.deepEqual(claudeArgv.slice(0, 5), ["--print", "--no-session-persistence", "--tools", "", "--model"]);
+    assert.equal(claudeArgv[5], "haiku");
+
+    const renames = matchingCommands(await loggedCommands(harness), "pane", "rename");
+    assert.ok(renames.some((argv) => argv.includes("Fix OAuth redirect")));
+
+    const log = await readFile(join(harness.stateDir, "rename.log"), "utf8");
+    assert.match(log, /fell back to claude after pi failed/);
+  });
+});
+
+test("a configured model is not handed to the standby generator", async () => {
+  await withHarness({}, async (harness) => {
+    await writeFile(harness.configPath, `${JSON.stringify({
+      generator: "pi",
+      piPath: harness.piPath,
+      claudePath: harness.claudePath,
+      model: "openai-codex/gpt-5.6-luna:high",
+      timeoutMs: 5_000,
+    }, null, 2)}\n`);
+    await writeFile(join(harness.piDir, "fail-left"), "1\n");
+    await runRename(harness, {
+      args: ["--source", "pi"],
+      env: { HERDR_PANE_ID: "w1:p2", HERDR_TAB_ID: "w1:t1" },
+      input: promptPayload("wire up the oauth callback", harness.root),
+    });
+    const piArgv = JSON.parse(await readFile(join(harness.piDir, "argv.txt"), "utf8"));
+    assert.equal(piArgv[piArgv.indexOf("--model") + 1], "openai-codex/gpt-5.6-luna:high");
+    const claudeArgv = JSON.parse(await readFile(join(harness.claudeDir, "argv.txt"), "utf8"));
+    assert.equal(claudeArgv[claudeArgv.indexOf("--model") + 1], "haiku");
+  });
+});
+
+test("reports every generator when the whole chain fails", async () => {
+  await withHarness({}, async (harness) => {
+    await writeFile(harness.configPath, `${JSON.stringify({
+      generator: "pi",
+      piPath: harness.piPath,
+      claudePath: join(harness.claudeDir, "absent-claude"),
+      timeoutMs: 5_000,
+    }, null, 2)}\n`);
+    await writeFile(join(harness.piDir, "fail-left"), "1\n");
+    const result = await runRename(harness, {
+      args: ["--source", "pi"],
+      env: { HERDR_PANE_ID: "w1:p2", HERDR_TAB_ID: "w1:t1" },
+      input: promptPayload("wire up the oauth callback", harness.root),
+    });
+    assert.equal(result.code, 0);
+    const state = await readState(harness);
+    assert.equal(state.panes["w1:p2"].label, undefined);
+    assert.equal(state.panes["w1:p2"].titlePrompt, "wire up the oauth callback");
+    assert.match(state.lastError.message, /pi failed:/);
+    assert.match(state.lastError.message, /claude failed:.*ENOENT/);
+  });
+});
+
 test("retries a failed process pane rename on the next event", async () => {
   await withHarness({}, async (harness) => {
     await writeJson(join(harness.herdrDir, "fail.json"), { "pane rename": 1 });
