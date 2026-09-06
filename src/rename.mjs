@@ -16,7 +16,8 @@ const MAX_PANES = 50;
 const MAX_PROMPT_CHARS = 1600;
 const MAX_LABEL_CHARS = 48;
 const MAX_LABEL_WORDS = 4;
-const TRUNCATABLE_WORDS = MAX_LABEL_WORDS + 2;
+const TRUNCATABLE_WORDS = MAX_LABEL_WORDS * 2;
+const TRAILING_CONNECTORS = new Set(["and", "or", "to", "for", "of", "in", "on", "with"]);
 const DEFAULT_TIMEOUT_MS = 60_000;
 // The lock only guards a read-modify-write of state.json, so a holder this old is dead.
 const STALE_LOCK_MS = 5_000;
@@ -189,7 +190,9 @@ function truncateLabel(candidate) {
   const words = labelWords(candidate);
   if (!words || words.length > TRUNCATABLE_WORDS) return null;
   for (let count = Math.min(words.length, MAX_LABEL_WORDS); count >= 2; count -= 1) {
-    const label = formatLabel(words.slice(0, count));
+    const kept = words.slice(0, count);
+    while (kept.length > 2 && TRAILING_CONNECTORS.has(kept.at(-1).toLowerCase())) kept.pop();
+    const label = `${formatLabel(kept)}…`;
     if (label.length <= MAX_LABEL_CHARS) return label;
   }
   return null;

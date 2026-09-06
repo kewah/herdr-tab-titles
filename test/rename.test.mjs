@@ -119,12 +119,16 @@ test("ignores an explanation the model appends below the label", () => {
   assert.equal(parseLabel(answer), "Explain Git Bisect");
 });
 
-test("trims a well-formed answer that overshoots the caps", () => {
-  assert.equal(parseLabel("Migrate legacy database schema to postgres"), "Migrate legacy database schema");
-  assert.equal(parseLabel("Fix flaky integration test suite timeouts"), "Fix flaky integration test");
+test("ellipsizes a well-formed answer that overshoots the caps", () => {
+  assert.equal(parseLabel("Migrate legacy database schema to postgres"), "Migrate legacy database schema…");
+  assert.equal(parseLabel("Fix flaky integration test suite timeouts"), "Fix flaky integration test…");
   assert.equal(
     parseLabel("Authentication authorization synchronization reconciliation refactor"),
-    "Authentication authorization synchronization",
+    "Authentication authorization synchronization…",
+  );
+  assert.equal(
+    parseLabel("Ruby UI migration and DDD schema redesign"),
+    "Ruby UI migration…",
   );
 });
 
@@ -137,7 +141,7 @@ test("prefers a label that fits over trimming an earlier line", () => {
 
 test("rejects verbose or malformed labels", () => {
   assert.equal(parseLabel("One"), null);
-  assert.equal(parseLabel("This Label Has Far Too Many Words"), null);
+  assert.equal(parseLabel("This label has far too many words to be a title"), null);
   assert.equal(parseLabel("Label: an explanation that runs far too long to be one"), null);
   assert.equal(parseLabel("I'd be happy to help you implement retry logic for that"), null);
 });
