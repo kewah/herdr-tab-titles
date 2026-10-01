@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { realpathSync } from "node:fs";
 import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import {
@@ -84,8 +86,13 @@ test("falls back to the standby generator when the primary fails", async () => {
     const claudeStdin = await readFile(join(harness.claudeDir, "stdin.txt"), "utf8");
     assert.match(claudeStdin, /wire up the oauth callback/);
     const claudeArgv = JSON.parse(await readFile(join(harness.claudeDir, "argv.txt"), "utf8"));
-    assert.deepEqual(claudeArgv.slice(0, 5), ["--print", "--no-session-persistence", "--tools", "", "--model"]);
-    assert.equal(claudeArgv[5], "haiku");
+    assert.deepEqual(claudeArgv.slice(0, 9), [
+      "--print", "--no-session-persistence", "--tools", "",
+      "--setting-sources", "", "--disable-slash-commands", "--strict-mcp-config",
+      "--model",
+    ]);
+    assert.equal(claudeArgv[9], "haiku");
+    assert.equal(await readFile(join(harness.claudeDir, "cwd.txt"), "utf8"), realpathSync(tmpdir()));
 
     const renames = matchingCommands(await loggedCommands(harness), "pane", "rename");
     assert.ok(renames.some((argv) => argv.includes("Fix OAuth redirect")));

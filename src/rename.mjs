@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
 import { mkdir, open, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { stripVTControlCharacters } from "node:util";
@@ -702,12 +702,13 @@ function stopChild(child, signal) {
   try { child.kill(signal); } catch { /* already exited */ }
 }
 
-function run(command, args, { input = "", timeout = DEFAULT_TIMEOUT_MS, env = process.env } = {}) {
+function run(command, args, { input = "", timeout = DEFAULT_TIMEOUT_MS, env = process.env, cwd } = {}) {
   return new Promise((resolve, reject) => {
     let settled = false;
     let killTimer;
     const child = spawn(command, args, {
       env,
+      cwd,
       stdio: ["pipe", "pipe", "pipe"],
       detached: process.platform !== "win32",
     });
@@ -822,13 +823,16 @@ async function attemptLabel(resolved, request, timeout, childEnv) {
         "--model", resolved.model, "--system-prompt", SYSTEM_PROMPT,
       ]
     : [
+        // User and project CLAUDE.md, skills and MCP make the model answer the prompt instead of titling it.
         "--print", "--no-session-persistence", "--tools", "",
+        "--setting-sources", "", "--disable-slash-commands", "--strict-mcp-config",
         "--model", resolved.model, "--system-prompt", SYSTEM_PROMPT,
       ];
   const output = await run(resolved.command, args, {
     input: request,
     timeout,
     env: childEnv,
+    cwd: tmpdir(),
   });
   const rawOutput = stripVTControlCharacters(output).trim();
   const label = parseLabel(rawOutput);

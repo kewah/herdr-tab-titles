@@ -91,7 +91,7 @@ Claude CLI instead:
 }
 ```
 
-`generator` is `pi` or `claude`. `model` is passed through to that CLI (Claude aliases such as `haiku` work). Optional `piPath` / `claudePath` override the executable when it is not on the plugin's `PATH`. Set `renameTab` to `false` to leave tab labels alone, or `fallback` to `false` to use only the configured generator instead of trying the other one when it fails.
+`generator` is `pi` or `claude`. `model` is passed through to that CLI (Claude aliases such as `haiku` work). Claude runs without your settings, CLAUDE.md, skills, or MCP servers so it titles the prompt instead of answering it. Optional `piPath` / `claudePath` override the executable when it is not on the plugin's `PATH`. Set `renameTab` to `false` to leave tab labels alone, or `fallback` to `false` to use only the configured generator instead of trying the other one when it fails.
 
 ## Commands
 
