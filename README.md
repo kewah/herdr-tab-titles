@@ -43,7 +43,7 @@ herdr plugin action invoke status --plugin tab-titles
 That prints the resolved command (or a config/state error) and the last error. Pane records omit the raw first prompt. Detail is also in `~/.local/state/herdr/plugins/tab-titles/rename.log`. Confirm Pi (the default) with:
 
 ```sh
-pi --print --no-session --no-tools --no-extensions --model openai-codex/gpt-5.6-luna:minimal "say hi"
+pi --print --no-session --no-tools --no-extensions --model openai-codex/gpt-6-luna:minimal "say hi"
 ```
 
 ## Update
@@ -69,12 +69,12 @@ On Linux that is `~/.config/herdr/plugins/config/tab-titles/` (or `$XDG_CONFIG_H
 
 If you already had `~/.config/herdr/tab-titles.json` or `~/.local/state/herdr-tab-titles/state.json`, the plugin copies them into the Herdr directories once when the new files are absent, and leaves the old files in place.
 
-Use the CLI this machine is already signed into. Default generator is Pi with `openai-codex/gpt-5.6-luna:minimal`.
+Use the CLI this machine is already signed into. Default generator is Pi with `openai-codex/gpt-6-luna:minimal`.
 
 ```json
 {
   "generator": "pi",
-  "model": "openai-codex/gpt-5.6-luna:minimal",
+  "model": "openai-codex/gpt-6-luna:minimal",
   "timeoutMs": 60000,
   "renameTab": true
 }

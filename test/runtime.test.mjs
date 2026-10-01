@@ -101,7 +101,7 @@ test("a configured model is not handed to the standby generator", async () => {
       generator: "pi",
       piPath: harness.piPath,
       claudePath: harness.claudePath,
-      model: "openai-codex/gpt-5.6-luna:high",
+      model: "openai-codex/gpt-6-luna:high",
       timeoutMs: 5_000,
     }, null, 2)}\n`);
     await writeFile(join(harness.piDir, "fail-left"), "1\n");
@@ -111,7 +111,7 @@ test("a configured model is not handed to the standby generator", async () => {
       input: promptPayload("wire up the oauth callback", harness.root),
     });
     const piArgv = JSON.parse(await readFile(join(harness.piDir, "argv.txt"), "utf8"));
-    assert.equal(piArgv[piArgv.indexOf("--model") + 1], "openai-codex/gpt-5.6-luna:high");
+    assert.equal(piArgv[piArgv.indexOf("--model") + 1], "openai-codex/gpt-6-luna:high");
     const claudeArgv = JSON.parse(await readFile(join(harness.claudeDir, "argv.txt"), "utf8"));
     assert.equal(claudeArgv[claudeArgv.indexOf("--model") + 1], "haiku");
   });

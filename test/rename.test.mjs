@@ -150,7 +150,7 @@ test("resolves Pi and Claude title generators", () => {
   assert.deepEqual(resolveGenerator({}, {}), {
     generator: "pi",
     command: "pi",
-    model: "openai-codex/gpt-5.6-luna:minimal",
+    model: "openai-codex/gpt-6-luna:minimal",
   });
   assert.deepEqual(resolveGenerator({ generator: "claude" }, {}), {
     generator: "claude",
@@ -170,26 +170,26 @@ test("resolves Pi and Claude title generators", () => {
 
 test("falls back to the other generator, with that generator's own model", () => {
   assert.deepEqual(generatorChain({}, {}), [
-    { generator: "pi", command: "pi", model: "openai-codex/gpt-5.6-luna:minimal" },
+    { generator: "pi", command: "pi", model: "openai-codex/gpt-6-luna:minimal" },
     { generator: "claude", command: "claude", model: "haiku" },
   ]);
   assert.deepEqual(generatorChain({ generator: "claude" }, {}), [
     { generator: "claude", command: "claude", model: "haiku" },
-    { generator: "pi", command: "pi", model: "openai-codex/gpt-5.6-luna:minimal" },
+    { generator: "pi", command: "pi", model: "openai-codex/gpt-6-luna:minimal" },
   ]);
-  assert.deepEqual(generatorChain({ model: "openai-codex/gpt-5.6-luna:high" }, {}), [
-    { generator: "pi", command: "pi", model: "openai-codex/gpt-5.6-luna:high" },
+  assert.deepEqual(generatorChain({ model: "openai-codex/gpt-6-luna:high" }, {}), [
+    { generator: "pi", command: "pi", model: "openai-codex/gpt-6-luna:high" },
     { generator: "claude", command: "claude", model: "haiku" },
   ]);
   assert.deepEqual(generatorChain({ claudePath: "/opt/claude" }, {}), [
-    { generator: "pi", command: "pi", model: "openai-codex/gpt-5.6-luna:minimal" },
+    { generator: "pi", command: "pi", model: "openai-codex/gpt-6-luna:minimal" },
     { generator: "claude", command: "/opt/claude", model: "haiku" },
   ]);
 });
 
 test("honours an explicit opt out of the fallback", () => {
   assert.deepEqual(generatorChain({ fallback: false }, {}), [
-    { generator: "pi", command: "pi", model: "openai-codex/gpt-5.6-luna:minimal" },
+    { generator: "pi", command: "pi", model: "openai-codex/gpt-6-luna:minimal" },
   ]);
 });
 
