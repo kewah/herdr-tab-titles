@@ -26,7 +26,7 @@ const LOCK_RETRY_MS = 25;
 const DEFAULT_GENERATOR = "pi";
 const GENERATORS = ["pi", "claude"];
 const DEFAULT_PI_MODEL = "openai-codex/gpt-6-luna:minimal";
-const DEFAULT_CLAUDE_MODEL = "haiku";
+const DEFAULT_CLAUDE_MODEL = "claude-sonnet-5-5";
 const DEFAULT_KILL_GRACE_MS = 1_000;
 let stateUnwritable = false;
 
@@ -826,7 +826,7 @@ async function attemptLabel(resolved, request, timeout, childEnv) {
         // User and project CLAUDE.md, skills and MCP make the model answer the prompt instead of titling it.
         "--print", "--no-session-persistence", "--tools", "",
         "--setting-sources", "", "--disable-slash-commands", "--strict-mcp-config",
-        "--model", resolved.model, "--system-prompt", SYSTEM_PROMPT,
+        "--model", resolved.model, "--effort", "low", "--system-prompt", SYSTEM_PROMPT,
       ];
   const output = await run(resolved.command, args, {
     input: request,

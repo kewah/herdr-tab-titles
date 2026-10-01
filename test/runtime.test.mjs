@@ -80,18 +80,18 @@ test("falls back to the standby generator when the primary fails", async () => {
     const record = state.panes["w1:p2"];
     assert.equal(record.label, "Fix OAuth redirect");
     assert.equal(record.generator, "claude");
-    assert.equal(record.model, "haiku");
+    assert.equal(record.model, "claude-sonnet-5-5");
     assert.equal(state.lastError, undefined);
 
     const claudeStdin = await readFile(join(harness.claudeDir, "stdin.txt"), "utf8");
     assert.match(claudeStdin, /wire up the oauth callback/);
     const claudeArgv = JSON.parse(await readFile(join(harness.claudeDir, "argv.txt"), "utf8"));
-    assert.deepEqual(claudeArgv.slice(0, 9), [
+    assert.deepEqual(claudeArgv.slice(0, 11), [
       "--print", "--no-session-persistence", "--tools", "",
       "--setting-sources", "", "--disable-slash-commands", "--strict-mcp-config",
-      "--model",
+      "--model", "claude-sonnet-5-5", "--effort",
     ]);
-    assert.equal(claudeArgv[9], "haiku");
+    assert.equal(claudeArgv[11], "low");
     assert.equal(await readFile(join(harness.claudeDir, "cwd.txt"), "utf8"), realpathSync(tmpdir()));
 
     const renames = matchingCommands(await loggedCommands(harness), "pane", "rename");
@@ -120,7 +120,7 @@ test("a configured model is not handed to the standby generator", async () => {
     const piArgv = JSON.parse(await readFile(join(harness.piDir, "argv.txt"), "utf8"));
     assert.equal(piArgv[piArgv.indexOf("--model") + 1], "openai-codex/gpt-6-luna:high");
     const claudeArgv = JSON.parse(await readFile(join(harness.claudeDir, "argv.txt"), "utf8"));
-    assert.equal(claudeArgv[claudeArgv.indexOf("--model") + 1], "haiku");
+    assert.equal(claudeArgv[claudeArgv.indexOf("--model") + 1], "claude-sonnet-5-5");
   });
 });
 

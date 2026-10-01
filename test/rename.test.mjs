@@ -155,7 +155,7 @@ test("resolves Pi and Claude title generators", () => {
   assert.deepEqual(resolveGenerator({ generator: "claude" }, {}), {
     generator: "claude",
     command: "claude",
-    model: "haiku",
+    model: "claude-sonnet-5-5",
   });
   assert.deepEqual(resolveGenerator({
     generator: "claude",
@@ -171,19 +171,19 @@ test("resolves Pi and Claude title generators", () => {
 test("falls back to the other generator, with that generator's own model", () => {
   assert.deepEqual(generatorChain({}, {}), [
     { generator: "pi", command: "pi", model: "openai-codex/gpt-6-luna:minimal" },
-    { generator: "claude", command: "claude", model: "haiku" },
+    { generator: "claude", command: "claude", model: "claude-sonnet-5-5" },
   ]);
   assert.deepEqual(generatorChain({ generator: "claude" }, {}), [
-    { generator: "claude", command: "claude", model: "haiku" },
+    { generator: "claude", command: "claude", model: "claude-sonnet-5-5" },
     { generator: "pi", command: "pi", model: "openai-codex/gpt-6-luna:minimal" },
   ]);
   assert.deepEqual(generatorChain({ model: "openai-codex/gpt-6-luna:high" }, {}), [
     { generator: "pi", command: "pi", model: "openai-codex/gpt-6-luna:high" },
-    { generator: "claude", command: "claude", model: "haiku" },
+    { generator: "claude", command: "claude", model: "claude-sonnet-5-5" },
   ]);
   assert.deepEqual(generatorChain({ claudePath: "/opt/claude" }, {}), [
     { generator: "pi", command: "pi", model: "openai-codex/gpt-6-luna:minimal" },
-    { generator: "claude", command: "/opt/claude", model: "haiku" },
+    { generator: "claude", command: "/opt/claude", model: "claude-sonnet-5-5" },
   ]);
 });
 
