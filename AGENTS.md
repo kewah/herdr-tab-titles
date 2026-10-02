@@ -36,4 +36,6 @@ To release:
    herdr plugin list --plugin tab-titles --json
    ```
 
+   Skip this step when the plugin is linked (`herdr plugin link .`): the working tree is already live.
+
 Never move or delete a pushed tag. Fix a bad release with a new patch version.
