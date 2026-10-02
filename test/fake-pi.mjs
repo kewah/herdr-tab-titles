@@ -23,5 +23,12 @@ if (process.env.FAKE_PI_IGNORE_TERM === "1") {
   process.on("SIGTERM", () => {});
   await new Promise((resolve) => setTimeout(resolve, Number(process.env.FAKE_PI_DELAY_MS || 2000)));
 }
-const label = process.env.FAKE_PI_LABEL || "Fix OAuth redirect";
+const labelsFile = join(dir, "labels");
+let queued;
+if (existsSync(labelsFile)) {
+  const [next, ...rest] = readFileSync(labelsFile, "utf8").split("\n");
+  writeFileSync(labelsFile, rest.join("\n"));
+  queued = next || undefined;
+}
+const label = queued || process.env.FAKE_PI_LABEL || "Fix OAuth redirect";
 process.stdout.write(`${label}\n`);

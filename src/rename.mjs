@@ -200,15 +200,20 @@ function truncateLabel(candidate) {
   return null;
 }
 
-export function parseLabel(output) {
-  const candidates = labelCandidates(output);
-  for (const candidate of candidates) {
+function parseExactLabel(output) {
+  for (const candidate of labelCandidates(output)) {
     const label = normalizeLabel(candidate);
     if (label) return label;
   }
-  for (const candidate of candidates) {
-    const label = truncateLabel(candidate);
-    if (label) return label;
+  return null;
+}
+
+export function parseLabel(output) {
+  const label = parseExactLabel(output);
+  if (label) return label;
+  for (const candidate of labelCandidates(output)) {
+    const truncated = truncateLabel(candidate);
+    if (truncated) return truncated;
   }
   return null;
 }
@@ -830,18 +835,26 @@ async function attemptLabel(resolved, request, timeout, childEnv) {
         "--setting-sources", "", "--disable-slash-commands", "--strict-mcp-config",
         "--model", resolved.model, "--effort", "low", "--system-prompt", SYSTEM_PROMPT,
       ];
-  const output = await run(resolved.command, args, {
-    input: request,
+  const ask = async (input) => stripVTControlCharacters(await run(resolved.command, args, {
+    input,
     timeout,
     env: childEnv,
     cwd: tmpdir(),
-  });
-  const rawOutput = stripVTControlCharacters(output).trim();
-  const label = parseLabel(rawOutput);
+  })).trim();
+  const rawOutput = await ask(request);
+  const result = { rawOutput, model: resolved.model, generator: resolved.generator };
+  const exact = parseExactLabel(rawOutput);
+  if (exact) return { ...result, label: exact };
+  // Truncating is the last resort, so an answer that broke the word limit gets one corrected retry.
+  const retryOutput = await ask(
+    `${request}\n\nYour previous answer, ${JSON.stringify(cleanText(rawOutput, 200))}, is not a title of 2-4 words. `
+    + "Reply with only a title of at most 4 words.",
+  ).catch(() => "");
+  const label = parseExactLabel(retryOutput) || parseLabel(rawOutput) || parseLabel(retryOutput);
   if (!label) {
     throw new Error(`${resolved.generator} returned an invalid label: ${JSON.stringify(cleanText(rawOutput, 100))}`);
   }
-  return { label, rawOutput, model: resolved.model, generator: resolved.generator };
+  return { ...result, retryOutput, label };
 }
 
 /** The timeout is per generator, so a hung primary cannot eat the standby's budget. */

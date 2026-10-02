@@ -25,7 +25,7 @@ The installer wires whichever of those agents it finds. It is idempotent, backs 
 
 - Agent appears → pane is labeled `Claude Code`, `Pi`, `Codex`, …
 - First prompt → a 2–4 word task title replaces that label (pane and, by default, the tab)
-- A slightly overlong generated title is shortened with an ellipsis instead of failing
+- A generated title over 4 words is sent back once for a shorter one; only if that also fails is it shortened with an ellipsis
 - Later prompts keep the same title
 - Agent leaves → names fall back to another titled pane in the tab, the process, or Herdr's tab number
 - No agent → pane follows the foreground process

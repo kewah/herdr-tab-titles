@@ -348,6 +348,36 @@ test("malformed config does not rename tabs or invoke the default generator", as
   });
 });
 
+test("asks once more for a shorter title before ellipsizing an overlong one", async () => {
+  await withHarness({}, async (harness) => {
+    await writeFile(join(harness.piDir, "labels"), "Native pstack setup for Claude Code\nNative pstack setup\n");
+    await runRename(harness, {
+      args: ["--source", "pi"],
+      env: { HERDR_PANE_ID: "w1:p2", HERDR_TAB_ID: "w1:t1" },
+      input: promptPayload("Set up pstack natively in Claude Code", harness.root),
+    });
+    const stdin = await readFile(join(harness.piDir, "stdin.txt"), "utf8");
+    assert.match(stdin, /Set up pstack natively in Claude Code/);
+    assert.match(stdin, /"Native pstack setup for Claude Code", is not a title of 2-4 words/);
+    assert.equal((await readState(harness)).panes["w1:p2"].label, "Native pstack setup");
+  });
+});
+
+test("ellipsizes the first answer when the retry is still overlong", async () => {
+  await withHarness({}, async (harness) => {
+    await writeFile(
+      join(harness.piDir, "labels"),
+      "Native pstack setup for Claude Code\nNative pstack wrapper removal for Claude\n",
+    );
+    await runRename(harness, {
+      args: ["--source", "pi"],
+      env: { HERDR_PANE_ID: "w1:p2", HERDR_TAB_ID: "w1:t1" },
+      input: promptPayload("Set up pstack natively in Claude Code", harness.root),
+    });
+    assert.equal((await readState(harness)).panes["w1:p2"].label, "Native pstack setup…");
+  });
+});
+
 test("Pi receives the prompt on stdin, not argv", async () => {
   await withHarness({}, async (harness) => {
     const sentinel = "SENTINEL_PROMPT_SHOULD_NOT_BE_IN_ARGV";

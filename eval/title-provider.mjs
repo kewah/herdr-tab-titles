@@ -15,6 +15,7 @@ export default class HerdrTitleProvider {
         output: result.rawOutput,
         metadata: {
           parsedTitle: result.label,
+          retryOutput: result.retryOutput,
           generator: result.generator,
           model: result.model,
         },
