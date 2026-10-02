@@ -48,14 +48,14 @@ pi --print --no-session --no-tools --no-extensions --model openai-codex/gpt-6-lu
 
 ## Update
 
-An install is pinned to a commit. Reinstall over the top, then restart (or `/reload`) running agents:
+An install is pinned to a commit. Releases are tagged with [semantic versions](https://semver.org) (`v0.11.0`), so pick one from the [tags](https://github.com/kewah/herdr-tab-titles/tags) and reinstall over the top, then restart (or `/reload`) running agents:
 
 ```sh
-herdr plugin install kewah/herdr-tab-titles
+herdr plugin install kewah/herdr-tab-titles --ref v0.11.0
 herdr plugin list --plugin tab-titles --json
 ```
 
-`source.resolved_commit` is what is running.
+Leave out `--ref` to install the latest commit on `main`. `source.resolved_commit` is what is running.
 
 ## Configuration
 
