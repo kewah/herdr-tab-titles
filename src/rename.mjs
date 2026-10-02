@@ -80,7 +80,7 @@ const LOG_PATH = join(STATE_DIR, "rename.log");
 
 const SYSTEM_PROMPT = `Create a short title for the task in the user's first message.
 
-Write a specific 2-4 word noun phrase that captures the main goal. Summarize the task as a whole instead of listing every requested detail. Remove conversational filler, background context, URLs, and slash commands such as /simplify. Mention a tool, library, or project only when it is central to the task.
+Write a specific noun phrase of about 3 words, never more than 4, that captures the main goal. Every word counts, including each word of a name such as "Claude Agent SDK". Leave out prepositional phrases such as "for X", "in Y", or "to Z", keep only the most distinctive name, and summarize the task as a whole instead of listing every requested detail. Remove conversational filler, background context, URLs, and slash commands such as /simplify. Mention a tool, library, or project only when it is central to the task.
 
 Use sentence case: capitalize only the first word and proper names or acronyms. Preserve established technical spelling. Do not begin with "Help", "Request", "Task", or "Work on". Return one title, never a numbered or bulleted list, and never include a list marker such as "1.". Return only the title, with no quotes, markdown, ending punctuation, commentary, or explanation. Keep it at most 48 characters.
 
@@ -88,7 +88,9 @@ Examples:
 - Review a README update for clarity and accuracy -> README update review
 - Add a toolkit using a Git subtree -> Git subtree toolkit integration
 - Improve the UI and UX of a settings screen -> Settings UX/UI improvements
-- Rebalance jobs across worker queues for peak traffic -> Worker queue rebalance strategy`;
+- Rebalance jobs across worker queues for peak traffic -> Worker queue rebalance strategy
+- Move our service from the Stripe Node client to the Stripe Go SDK -> Stripe Go migration
+- Explain how retries flow through the Kafka consumer in the billing service -> Billing retry flow`;
 
 function cleanText(value, limit = MAX_PROMPT_CHARS) {
   return stripVTControlCharacters(String(value ?? ""))
