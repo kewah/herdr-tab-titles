@@ -13,6 +13,17 @@ export default function (pi: ExtensionAPI) {
   const installed = join(process.env.HOME || homedir(), ".local", "bin", "herdr-tab-titles");
   const launcher = existsSync(installed) ? installed : "herdr-tab-titles";
 
+  // Await lifecycle mutations so the next prompt cannot race a detached reset.
+  pi.on("session_start", async (event, ctx) => {
+    if (ctx.mode !== "tui" || event.reason === "reload") return;
+    await pi.exec(launcher, ["--source", "pi", "--reset"], { timeout: 15_000 }).catch(() => {});
+  });
+
+  pi.on("session_shutdown", async (event, ctx) => {
+    if (ctx.mode !== "tui" || event.reason !== "quit") return;
+    await pi.exec(launcher, ["--source", "pi", "--release"], { timeout: 15_000 }).catch(() => {});
+  });
+
   pi.on("input", (event, ctx) => {
     if (ctx.mode !== "tui" || event.source === "extension" || !event.text.trim()) return;
 
@@ -23,7 +34,7 @@ export default function (pi: ExtensionAPI) {
     });
     child.on("error", () => {});
     child.stdin.on("error", () => {});
-    child.stdin.end(JSON.stringify({ prompt: event.text, cwd: ctx.cwd }));
+    child.stdin.end(JSON.stringify({ prompt: event.text, cwd: ctx.cwd, session_id: ctx.sessionManager.getSessionId() }));
     child.unref();
   });
 }

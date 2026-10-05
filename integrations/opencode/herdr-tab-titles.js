@@ -44,7 +44,7 @@ function isInteractiveInvocation(argv = process.argv) {
 }
 
 const plugin = async ({ directory }) => ({
-  "chat.message": async (_input, output) => {
+  "chat.message": async (input, output) => {
     if (process.env.HERDR_ENV !== "1" || !isInteractiveInvocation()) return;
     const prompt = promptFromParts(output.parts);
     if (!prompt) return;
@@ -58,7 +58,7 @@ const plugin = async ({ directory }) => ({
     });
     child.on("error", () => {});
     child.stdin.on("error", () => {});
-    child.stdin.end(JSON.stringify({ prompt, cwd: directory }));
+    child.stdin.end(JSON.stringify({ prompt, cwd: directory, session_id: input.sessionID }));
     child.unref();
   },
 });

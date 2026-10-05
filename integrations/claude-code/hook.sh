@@ -10,5 +10,10 @@ esac
 renamer="$HOME/.local/bin/herdr-tab-titles"
 [ -x "$renamer" ] || renamer=herdr-tab-titles
 payload=$(cat)
+# Resets must finish before the next session can submit its first prompt.
+if [ "${1:-}" = "--lifecycle" ]; then
+  printf '%s' "$payload" | "$renamer" --source claude-code
+  exit 0
+fi
 printf '%s' "$payload" | nohup "$renamer" --source claude-code >/dev/null 2>&1 &
 exit 0

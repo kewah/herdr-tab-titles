@@ -1034,9 +1034,10 @@ async function clearOnRelease(released) {
   const decided = await withLock(async () => {
     const state = await loadState();
     const record = state.panes?.[released.paneId];
-    if (!record) return { named: false };
+    if (!record || record.source === "process") return { named: false };
     tabId = tabId || cleanText(record.tabId, 80);
     record.releasePending = true;
+    delete record.pending;
     await saveState(state);
     return { named: true, tabId };
   });
@@ -1070,10 +1071,29 @@ async function clearOnRelease(released) {
 
   await withLock(async () => {
     const state = await loadState();
-    if (state.panes) delete state.panes[released.paneId];
+    // A shell prompt may already have replaced this record while Herdr was renaming.
+    const record = state.panes?.[released.paneId];
+    if (record?.releasePending) delete state.panes[released.paneId];
+    else if (record) delete record.appliedPane;
     await saveState(state);
   });
+  if (!paneGone) await syncLabels(released.paneId, decided.tabId, workspaceId, config);
   await log(`agent-released reset ${released.paneId}${decided.tabId ? ` in ${decided.tabId}` : ""}`);
+}
+
+/** Forget the old task, including any in-flight generator, without leaving the agent. */
+async function resetSession(paneId, tabId, workspaceId, source, sessionId = "") {
+  const config = await loadConfig();
+  const pane = await paneInfo(paneId);
+  const label = kindLabel(source === "claude-code" ? "claude" : source) || kindLabel(pane.agent);
+  await withLock(async () => {
+    const state = await loadState();
+    state.panes ??= {};
+    state.panes[paneId] = { tabId, defaultLabel: label, source: "session-reset", sessionId };
+    await saveState(state);
+  });
+  if (!label) await clearPaneLabel(paneId);
+  await syncLabels(paneId, tabId, workspaceId, config);
 }
 
 async function applyDefault() {
@@ -1130,7 +1150,9 @@ async function applyProcess() {
   } catch {
     return;
   }
-  if (cleanText(pane.agent, 40)) return;
+  // A shell prompt is authoritative even before Herdr releases its agent metadata.
+  const shellPrompt = process.argv.includes("--shell-prompt");
+  if (!shellPrompt && cleanText(pane.agent, 40)) return;
   const tabId = cleanText(pane.tab_id, 80);
   if (!tabId) return;
 
@@ -1147,10 +1169,12 @@ async function applyProcess() {
   const decided = await withLock(async () => {
     const state = await loadState();
     const previous = state.panes?.[target.paneId];
-    if (!shouldApplyProcess(previous, label)) return { apply: false };
+    const staleChat = previous && (previous.label || previous.pending || previous.titlePrompt || previous.defaultLabel || previous.releasePending);
+    const reset = shellPrompt && staleChat;
+    if (!reset && !shouldApplyProcess(previous, label)) return { apply: false };
     state.panes ??= {};
     state.panes[target.paneId] = {
-      ...previous,
+      ...(reset ? {} : previous),
       tabId,
       processLabel: label,
       source: "process",
@@ -1158,9 +1182,10 @@ async function applyProcess() {
     };
     state.panes = capPanes(state.panes);
     await saveState(state);
-    return { apply: true };
+    return { apply: true, reset };
   });
 
+  if (decided.reset) await clearWorktreeToken(target.paneId).catch(() => {});
   const config = await loadConfig();
   await syncLabels(target.paneId, tabId, target.workspaceId, config);
   if (decided.apply) await log(`process renamed ${target.paneId} in ${tabId} to ${JSON.stringify(label)}`);
@@ -1224,14 +1249,32 @@ async function main() {
   const paneId = process.env.HERDR_PANE_ID || context.focused_pane_id;
   if (!tabId || !paneId) return;
 
-  const input = await readStdin();
+  const input = process.argv.includes("--reset") || process.argv.includes("--release") ? "" : await readStdin();
   let payload = {};
   try { payload = input.trim() ? JSON.parse(input) : {}; } catch {}
+  if (payload.agent_id) return; // Nested agents must not reset their parent's pane.
+  const workspaceId = process.env.HERDR_WORKSPACE_ID || context.workspace_id;
+  const sessionId = cleanText(payload.session_id || payload.conversation_id, 200);
+  const start = payload.hook_event_name === "SessionStart";
+  const end = payload.hook_event_name === "SessionEnd";
+  if (process.argv.includes("--release") || end) {
+    const record = (await loadState()).panes?.[paneId];
+    if (sessionId && record?.sessionId && sessionId !== record.sessionId) return;
+    return clearOnRelease({ paneId, workspaceId });
+  }
+  if (start && payload.source === "compact") return;
   let prompt = cleanText(payload.prompt);
+  if (process.argv.includes("--reset") || start || /^\/(clear|new)$/.test(prompt)) {
+    return resetSession(paneId, tabId, workspaceId, source, sessionId);
+  }
   if (isSyntheticPrompt(prompt)) return;
   if (!prompt && process.argv.includes("--current")) prompt = await currentPrompt(paneId, tabId);
   if (!prompt) return;
 
+  const previousSession = (await loadState()).panes?.[paneId]?.sessionId;
+  if (sessionId && previousSession && sessionId !== previousSession) {
+    await resetSession(paneId, tabId, workspaceId, source, sessionId);
+  }
   const force = process.argv.includes("--current");
   const config = await loadConfig();
   const token = randomUUID();
@@ -1243,6 +1286,7 @@ async function main() {
     const record = {
       ...previous,
       tabId,
+      sessionId: sessionId || previous?.sessionId || "",
       titlePrompt,
       pending: token,
       source,
@@ -1268,7 +1312,7 @@ async function main() {
       const current = await withLock(async () => {
         const state = await loadState();
         const record = state.panes?.[paneId];
-        if (!record || record.pending !== token) return false;
+        if (!record || record.releasePending || record.pending !== token) return false;
         record.label = label;
         record.worktree = worktree;
         record.generator = generator;

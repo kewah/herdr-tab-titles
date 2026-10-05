@@ -1,5 +1,16 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "^(startup|resume|clear|fork)$",
+        "hooks": [{ "type": "command", "command": "{{claude-hook}} --lifecycle", "timeout": 15 }]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [{ "type": "command", "command": "{{claude-hook}} --lifecycle", "timeout": 15 }]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [

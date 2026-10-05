@@ -1,5 +1,16 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "^(startup|resume|clear)$",
+        "hooks": [{ "type": "command", "command": "{{launcher}} --source codex", "timeout": 15 }]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [{ "type": "command", "command": "{{launcher}} --source codex", "timeout": 3 }]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "hooks": [

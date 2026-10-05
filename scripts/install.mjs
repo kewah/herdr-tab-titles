@@ -167,15 +167,22 @@ function applyTokens(command, tokens) {
   );
 }
 
-/**
- * The `UserPromptSubmit` hook an agent should run, read from its file under
- * `integrations/` so that the shipped snippet and what gets installed cannot drift.
- */
-async function promptHookFrom(path, tokens = {}) {
+/** Load all native lifecycle hooks from the shipped integration. */
+async function agentHooksFrom(path, tokens = {}) {
   const json = JSON.parse(await readFile(path, "utf8"));
-  const hook = json?.hooks?.UserPromptSubmit?.[0]?.hooks?.[0];
-  if (!hook?.command) throw new Error(`${path} defines no UserPromptSubmit command hook`);
-  return { ...hook, command: applyTokens(hook.command, tokens) };
+  return Object.entries(json.hooks).flatMap(([event, groups]) => groups.map((group) => ({
+    event,
+    matcher: group.matcher,
+    hook: { ...group.hooks[0], command: applyTokens(group.hooks[0].command, tokens) },
+  })));
+}
+
+function setAgentHooks(json, hooks) {
+  let changed = false;
+  for (const { event, matcher, hook } of hooks) {
+    changed = setPromptHook(json, hook, event, matcher) || changed;
+  }
+  return changed;
 }
 
 /**
@@ -190,10 +197,11 @@ async function cursorPromptHookFrom(path, tokens = {}) {
 }
 
 /** Adds or updates this plugin's `UserPromptSubmit` hook, leaving other hooks and any local edits alone. */
-function setPromptHook(json, hook) {
+function setPromptHook(json, hook, event = "UserPromptSubmit", pattern) {
   json.hooks ??= {};
-  const matchers = (json.hooks.UserPromptSubmit ??= []);
+  const matchers = (json.hooks[event] ??= []);
   for (const matcher of matchers) {
+    if (matcher.matcher !== pattern) continue;
     const existing = (matcher?.hooks ?? []).find(isOurHook);
     if (!existing) continue;
     const current = Object.entries(hook)
@@ -202,7 +210,7 @@ function setPromptHook(json, hook) {
     Object.assign(existing, hook);
     return true;
   }
-  matchers.push({ hooks: [hook] });
+  matchers.push({ ...(pattern === undefined ? {} : { matcher: pattern }), hooks: [hook] });
   return true;
 }
 
@@ -258,8 +266,8 @@ if (await exists(join(HOME, ".pi", "agent"))) {
 
 if (await exists(join(HOME, ".codex"))) {
   const path = join(HOME, ".codex", "hooks.json");
-  const hook = await promptHookFrom(join(ROOT, "integrations", "codex-user-prompt-hook.json"), { launcher: LAUNCHER });
-  await editJson(path, (json) => setPromptHook(json, hook) && `set the Codex hook in ${path}`);
+  const hooks = await agentHooksFrom(join(ROOT, "integrations", "codex-user-prompt-hook.json"), { launcher: LAUNCHER });
+  await editJson(path, (json) => setAgentHooks(json, hooks) && `set the Codex hook in ${path}`);
 } else {
   skipped.push("Codex is not installed");
 }
@@ -267,11 +275,11 @@ if (await exists(join(HOME, ".codex"))) {
 if (await exists(join(HOME, ".claude"))) {
   await install(CLAUDE_HOOK, await marked(join(ROOT, "integrations", "claude-code", "hook.sh"), "#"), { executable: true });
   const path = join(HOME, ".claude", "settings.json");
-  const hook = await promptHookFrom(
+  const hooks = await agentHooksFrom(
     join(ROOT, "integrations", "claude-code", "settings-hook.json"),
     { "claude-hook": CLAUDE_HOOK },
   );
-  await editJson(path, (json) => setPromptHook(json, hook) && `set the Claude Code hook in ${path}`);
+  await editJson(path, (json) => setAgentHooks(json, hooks) && `set the Claude Code hook in ${path}`);
 } else {
   skipped.push("Claude Code is not installed");
 }

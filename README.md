@@ -27,6 +27,8 @@ The installer wires whichever of those agents it finds. It is idempotent, backs 
 - First prompt → a 2–4 word task title replaces that label (pane and, by default, the tab)
 - A generated title over 4 words is sent back once for a shorter one; only if that also fails is it shortened with an ellipsis
 - Later prompts keep the same title
+- `/clear` / new chat → the agent label returns; the next prompt generates a fresh title (native lifecycle hooks for Pi, Claude Code, and Codex)
+- Returning to the shell discards the chat title even if Herdr's agent metadata has not caught up
 - Agent leaves → names fall back to another titled pane in the tab, the process, or Herdr's tab number
 - No agent → pane follows the foreground process
 

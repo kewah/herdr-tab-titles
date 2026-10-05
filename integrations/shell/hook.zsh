@@ -27,7 +27,7 @@ _herdr_tab_titles_preexec() {
 }
 
 _herdr_tab_titles_precmd() {
-  (_herdr_tab_titles_launch --process zsh &)
+  (_herdr_tab_titles_launch --process zsh --shell-prompt &)
 }
 
 preexec_functions+=(_herdr_tab_titles_preexec)

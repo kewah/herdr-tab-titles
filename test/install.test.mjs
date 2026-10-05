@@ -59,6 +59,34 @@ test("installs current hooks and is idempotent", async () => {
   });
 });
 
+test("installs lifecycle hooks idempotently without replacing other hooks", async () => {
+  await withHome(async ({ home }) => {
+    for (const [directory, file] of [[".claude", "settings.json"], [".codex", "hooks.json"]]) {
+      await mkdir(join(home, directory), { recursive: true });
+      await writeFile(join(home, directory, file), JSON.stringify({ hooks: {
+        SessionStart: [{ matcher: "startup", hooks: [{ type: "command", command: "echo existing" }] }],
+      } }));
+    }
+    await runNode(INSTALL_PATH, { env: installEnv(home) });
+    const snapshots = [];
+    for (const [directory, file] of [[".claude", "settings.json"], [".codex", "hooks.json"]]) {
+      const path = join(home, directory, file);
+      const raw = await readFile(path, "utf8");
+      snapshots.push([path, raw]);
+      const { hooks } = JSON.parse(raw);
+      assert.equal(hooks.SessionStart[0].hooks[0].command, "echo existing");
+      assert.equal(hooks.SessionStart.length, 2);
+      assert.match(hooks.SessionStart[1].matcher, /clear/);
+      assert.equal(hooks.SessionEnd.length, 1);
+      assert.equal(hooks.UserPromptSubmit.length, 1);
+      assert.notEqual(hooks.SessionStart[1].hooks[0].async, true);
+      assert.notEqual(hooks.SessionEnd[0].hooks[0].async, true);
+    }
+    await runNode(INSTALL_PATH, { env: installEnv(home) });
+    for (const [path, raw] of snapshots) assert.equal(await readFile(path, "utf8"), raw);
+  });
+});
+
 test("does not rewrite unrelated rc content when adding the process hook", async () => {
   await withHome(async ({ home }) => {
     const bashrc = join(home, ".bashrc");
