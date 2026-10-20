@@ -240,6 +240,63 @@ test("retries a failed agent-release until the pane record is cleared", async ()
   });
 });
 
+test("a released pane's tab skips the titles of panes that have closed", async () => {
+  await withHarness({}, async (harness) => {
+    await writeState(harness, {
+      panes: {
+        "w1:p9": { tabId: "w1:t1", label: "Closed pane task", requestedAt: "2026-01-02T00:00:00.000Z" },
+        "w1:p1": { tabId: "w1:t1", label: "Current task", requestedAt: "2026-01-01T00:00:00.000Z" },
+      },
+    });
+    const event = JSON.stringify({
+      data: { pane_id: "w1:p1", workspace_id: "w1", agent: "cursor", released: true },
+    });
+    await runRename(harness, { args: ["--source", "agent-detected", "--default"], env: { HERDR_PLUGIN_EVENT_JSON: event } });
+    const tabRenames = matchingCommands(await loggedCommands(harness), "tab", "rename");
+    assert.deepEqual(tabRenames.at(-1), ["tab", "rename", "w1:t1", "1"]);
+    const state = await readState(harness);
+    assert.equal(state.panes["w1:p9"], undefined);
+  });
+});
+
+test("closing a titled pane hands the tab to the remaining titled pane", async () => {
+  await withHarness({
+    panes: { "w1:p2": { tab_id: "w1:t1", workspace_id: "w1", agent: "pi" } },
+  }, async (harness) => {
+    await writeState(harness, {
+      panes: {
+        "w1:p1": { tabId: "w1:t1", label: "Current task", requestedAt: "2026-01-02T00:00:00.000Z" },
+        "w1:p2": { tabId: "w1:t1", label: "Older task", requestedAt: "2026-01-01T00:00:00.000Z" },
+      },
+      tabApplied: { "w1:t1": "Current task" },
+    });
+    await writeJson(join(harness.herdrDir, "fail.json"), { "pane get w1:p1": 1 });
+    const event = JSON.stringify({ event: "pane_closed", data: { type: "pane_closed", pane_id: "w1:p1", workspace_id: "w1" } });
+    const result = await runRename(harness, { args: ["--source", "pane-closed"], env: { HERDR_PLUGIN_EVENT_JSON: event } });
+    assert.equal(result.code, 0);
+    const tabRenames = matchingCommands(await loggedCommands(harness), "tab", "rename");
+    assert.deepEqual(tabRenames, [["tab", "rename", "w1:t1", "Older task"]]);
+    const state = await readState(harness);
+    assert.equal(state.panes["w1:p1"], undefined);
+    assert.equal(state.panes["w1:p2"].label, "Older task");
+  });
+});
+
+test("closing the last pane of a tab forgets it without renaming the closed tab", async () => {
+  await withHarness({ panes: {} }, async (harness) => {
+    await writeState(harness, {
+      panes: { "w1:p1": { tabId: "w1:t1", label: "Current task", requestedAt: "2026-01-01T00:00:00.000Z" } },
+    });
+    await writeJson(join(harness.herdrDir, "fail.json"), { "pane get w1:p1": 1 });
+    const event = JSON.stringify({ event: "pane_closed", data: { type: "pane_closed", pane_id: "w1:p1", workspace_id: "w1" } });
+    await runRename(harness, { args: ["--source", "pane-closed"], env: { HERDR_PLUGIN_EVENT_JSON: event } });
+    assert.equal(matchingCommands(await loggedCommands(harness), "tab", "rename").length, 0);
+    const state = await readState(harness);
+    assert.equal(state.panes["w1:p1"], undefined);
+    assert.equal(state.lastError, undefined);
+  });
+});
+
 test("does not let a delayed placeholder overwrite a generated tab title", async () => {
   await withHarness({}, async (harness) => {
     await writeJson(join(harness.herdrDir, "delay.json"), { "pane report-metadata w1:p1": 250 });

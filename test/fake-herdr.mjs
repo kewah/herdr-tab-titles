@@ -37,6 +37,12 @@ if (kind === "pane" && action === "get") {
   const paneId = rest[1] || rest[0];
   const info = processes[paneId] ?? { foreground_processes: [{ argv0: "nvim" }] };
   process.stdout.write(`${JSON.stringify({ result: { process_info: info } })}\n`);
+} else if (kind === "pane" && action === "list") {
+  const workspace = rest[rest.indexOf("--workspace") + 1];
+  const listed = Object.entries(panes)
+    .map(([pane_id, pane]) => ({ pane_id, ...pane }))
+    .filter((pane) => !rest.includes("--workspace") || pane.workspace_id === workspace);
+  process.stdout.write(`${JSON.stringify({ result: { panes: listed } })}\n`);
 } else if (kind === "tab" && action === "list") {
   process.stdout.write(`${JSON.stringify({ result: { tabs } })}\n`);
 } else if (kind === "pane" && action === "read") {
