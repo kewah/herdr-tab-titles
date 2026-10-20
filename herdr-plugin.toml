@@ -1,6 +1,6 @@
 id = "tab-titles"
 name = "Tab Titles"
-version = "0.12.0"
+version = "0.12.1"
 min_herdr_version = "0.8.0"
 description = "Names Herdr panes and tabs after the first coding-agent prompt, or the foreground process when there is no chat title."
 platforms = ["linux", "macos"]
@@ -25,6 +25,10 @@ command = ["node", "src/rename.mjs", "--status"]
 [[events]]
 on = "pane.agent_detected"
 command = ["node", "src/rename.mjs", "--source", "agent-detected", "--default"]
+
+[[events]]
+on = "pane.closed"
+command = ["node", "src/rename.mjs", "--source", "pane-closed"]
 
 [[events]]
 on = "pane.created"

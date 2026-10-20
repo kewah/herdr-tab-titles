@@ -29,7 +29,7 @@ The installer wires whichever of those agents it finds. It is idempotent, backs 
 - Later prompts keep the same title
 - `/clear` / new chat → the agent label returns; the next prompt generates a fresh title (native lifecycle hooks for Pi, Claude Code, and Codex)
 - Returning to the shell discards the chat title even if Herdr's agent metadata has not caught up
-- Agent leaves → names fall back to another titled pane in the tab, the process, or Herdr's tab number
+- Agent leaves or its pane closes → names fall back to another titled pane in the tab, the process, or Herdr's tab number
 - No agent → pane follows the foreground process
 
 Each pane gets its own label. A tab has one shared label, so it follows the pane that most recently received its first prompt. Manual pane labels are replaced by that first prompt.

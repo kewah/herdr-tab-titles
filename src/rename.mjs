@@ -351,8 +351,8 @@ async function saveState(state) {
 /**
  * Keeps the most recently named panes, newest first.
  *
- * Herdr never reports that a pane closed, so entries for dead panes would otherwise
- * accumulate for as long as this file lives.
+ * A backstop for pane closes the plugin missed, which would otherwise leave entries
+ * accumulating for as long as this file lives.
  */
 export function capPanes(panes, max = MAX_PANES) {
   const entries = Object.entries(panes ?? {});
@@ -1014,6 +1014,16 @@ async function tabList(workspaceId) {
   return tabsFromList(await run(HERDR, ["tab", "list", "--workspace", workspaceId], { timeout: 5_000 }));
 }
 
+async function livePanes(workspaceId) {
+  if (!workspaceId) return null;
+  try {
+    const json = JSON.parse(await run(HERDR, ["pane", "list", "--workspace", workspaceId], { timeout: 5_000 }));
+    return Array.isArray(json?.result?.panes) ? json.result.panes : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Drop the session title once the agent leaves, so the pane shows Herdr's
  * default name again. A tab with no remaining named pane falls back to its
@@ -1048,12 +1058,17 @@ async function clearOnRelease(released) {
     await clearWorktreeToken(released.paneId).catch(() => {});
   }
 
+  const live = await livePanes(workspaceId);
+  const liveIds = live && new Set(live.map((pane) => pane.pane_id));
+  const isDead = (id, record) => liveIds && record?.tabId === decided.tabId && !liveIds.has(id);
+  const tabClosed = live && !live.some((pane) => pane.tab_id === decided.tabId);
+
   const config = await loadConfig();
-  if (config.renameTab !== false && decided.tabId) {
+  if (config.renameTab !== false && decided.tabId && !tabClosed) {
     let label = "";
     await withLock(async () => {
       const state = await loadState();
-      const panes = { ...state.panes };
+      const panes = Object.fromEntries(Object.entries(state.panes ?? {}).filter(([id, record]) => !isDead(id, record)));
       delete panes[released.paneId];
       label = remainingTabLabel(panes, decided.tabId);
     });
@@ -1075,6 +1090,9 @@ async function clearOnRelease(released) {
     const record = state.panes?.[released.paneId];
     if (record?.releasePending) delete state.panes[released.paneId];
     else if (record) delete record.appliedPane;
+    for (const [id, other] of Object.entries(state.panes ?? {})) {
+      if (isDead(id, other)) delete state.panes[id];
+    }
     await saveState(state);
   });
   if (!paneGone) await syncLabels(released.paneId, decided.tabId, workspaceId, config);
@@ -1238,6 +1256,10 @@ async function main() {
   const sourceIndex = process.argv.indexOf("--source");
   const source = sourceIndex >= 0 ? process.argv[sourceIndex + 1] : "unknown";
   if (process.env.HERDR_ENV !== "1") return;
+  if (source === "pane-closed") {
+    const closed = agentPaneEvent(pluginEvent());
+    return closed && clearOnRelease(closed);
+  }
   if (process.argv.includes("--default")) {
     const released = releasedAgentEvent(pluginEvent());
     if (released) return clearOnRelease(released);

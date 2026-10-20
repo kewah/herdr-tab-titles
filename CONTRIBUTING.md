@@ -24,7 +24,7 @@ node --test test/*.test.mjs
 
 The tests cover the pure functions: label parsing, first-prompt title gating, generator resolution,
 worktree formatting, the pane cap, the kind placeholder applied on `pane.agent_detected`,
-clearing that name when the agent is released, and foreground-process labels.
+clearing that name when the agent is released or its pane closes, and foreground-process labels.
 Runtime tests drive `src/rename.mjs` with fake Herdr and generator binaries for failure,
 timeout, retry, and status paths. Installer tests use a temporary home.
 Everything else needs a running Herdr, so exercise it by prompting a real agent and reading the log:
